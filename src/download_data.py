@@ -11,7 +11,10 @@ urllib.request.install_opener(opener)
 SEASONS = [2025, 2026]
 BASE_URL = "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{}.csv.gz"
 RAW_DIR = Path("data/raw")
-
+EXTRA_FILES = {
+    "players.csv": "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv",
+    "teams.csv": "https://github.com/nflverse/nflverse-data/releases/download/teams/teams_colors_logos.csv",
+}
 
 def download_season(season):
     url = BASE_URL.format(season)
@@ -26,3 +29,6 @@ if __name__ == "__main__":
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     for season in SEASONS:
         download_season(season)
+        for filename, url in EXTRA_FILES.items():
+            print(f"Downloading {filename}...")
+            urllib.request.urlretrieve(url, RAW_DIR / filename)

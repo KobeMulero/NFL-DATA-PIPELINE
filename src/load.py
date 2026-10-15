@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
+RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 DB_PATH = Path("data/nfl.db")
 SEASON = 2025
@@ -15,7 +16,24 @@ def load_table(conn, name):
     print(f"Loaded {len(df)} rows into '{name}'")
 
 
+def load_players(conn):
+    cols = ["gsis_id", "display_name", "position", "jersey_number", "headshot"]
+    df = pd.read_csv(RAW_DIR / "players.csv", usecols=cols, low_memory=False)
+    df = df.dropna(subset=["gsis_id"])
+    df.to_sql("players", conn, if_exists="replace", index=False)
+    print(f"Loaded {len(df)} rows into 'players'")
+
+
+def load_teams(conn):
+    cols = ["team_abbr", "team_name", "team_color", "team_color2"]
+    df = pd.read_csv(RAW_DIR / "teams.csv", usecols=cols)
+    df.to_sql("teams", conn, if_exists="replace", index=False)
+    print(f"Loaded {len(df)} rows into 'teams'")
+
+
 if __name__ == "__main__":
     with sqlite3.connect(DB_PATH) as conn:
         for name in ["passing", "rushing", "receiving"]:
             load_table(conn, name)
+        load_players(conn)
+        load_teams(conn)
