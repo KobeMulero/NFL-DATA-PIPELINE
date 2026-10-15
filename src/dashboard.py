@@ -1,3 +1,4 @@
+import datetime
 import html
 import sqlite3
 import textwrap
@@ -95,7 +96,7 @@ def show_table(df):
     st.dataframe(table.rename(columns={"full_name": "player"}), hide_index=True)
 
 
-def ranked_query(table, id_col, name_col, columns, min_filter, team):
+def ranked_query(table, id_col, name_col, columns, min_filter, team, season):
     # RANK() ranks every player in the NFL, then we keep only this team's players.
     # LEFT JOIN adds full names and headshots from the players table.
     sql = f"""
@@ -105,13 +106,13 @@ def ranked_query(table, id_col, name_col, columns, min_filter, team):
         SELECT {id_col} AS player_id, {name_col} AS player, posteam, {columns},
                RANK() OVER (ORDER BY yards DESC) AS nfl_rank
         FROM {table}
+        WHERE season = ?
     ) AS s
     LEFT JOIN players AS p ON p.gsis_id = s.player_id
     WHERE s.posteam = ? AND {min_filter}
     ORDER BY s.yards DESC
     """
-    return run_query(sql, (team,))
-
+    return run_query(sql, (season, team,))
 
 def bar_chart(df, color):
     return (
@@ -126,7 +127,7 @@ def bar_chart(df, color):
         .configure(background="transparent")
     )
 
-def clutch_table(team, situation, role):
+def clutch_table(team, situation, role, season):
     # Self-join: compare each player's stats in this situation to their own "All plays" numbers
     sql = """
     SELECT COALESCE(p.display_name, s.player_name) AS player,
@@ -136,12 +137,12 @@ def clutch_table(team, situation, role):
     FROM situational AS s
     JOIN situational AS a
       ON a.player_id = s.player_id AND a.role = s.role
-     AND a.posteam = s.posteam AND a.situation = 'All plays'
+          AND a.posteam = s.posteam AND a.season = s.season AND a.situation = 'All plays'
     LEFT JOIN players AS p ON p.gsis_id = s.player_id
-    WHERE s.posteam = ? AND s.situation = ? AND s.role = ? AND s.plays >= 5
+        WHERE s.posteam = ? AND s.situation = ? AND s.role = ? AND s.season = ? AND s.plays >= 5
     ORDER BY s.plays DESC
     """
-    df = run_query(sql, (team, situation, role))
+    df = run_query(sql, (team, situation, role, season))
     if role != "Passing":
         df = df.drop(columns="interceptions")
     return df
@@ -155,10 +156,12 @@ teams = run_query("""
     ORDER BY t.team_name
 """)
 names = teams["team_name"].tolist()
+seasons = run_query("SELECT DISTINCT season FROM rushing ORDER BY season DESC")["season"].tolist()
 with st.sidebar:
     st.header("Filters")
+    season = st.selectbox("Season", seasons)
     team_name = st.selectbox("Team", names, index=names.index("Baltimore Ravens"))
-    st.caption("Data: 2025 regular season play-by-play from nflverse. "
+    st.caption("Data: regular season play-by-play from nflverse. "
                "Stats rebuilt from individual plays and validated against official totals. "
                "Headshots via NFL.com.")
 
@@ -174,24 +177,25 @@ passing = ranked_query(
     "CAST(attempts AS INTEGER) AS attempts, CAST(completions AS INTEGER) AS completions, "
     "CAST(yards AS INTEGER) AS yards, CAST(touchdowns AS INTEGER) AS touchdowns, "
     "CAST(interceptions AS INTEGER) AS interceptions, comp_pct, yards_per_att",
-    "attempts >= 10", team,
+    "attempts >= 10", team,season
 )
 rushing = ranked_query(
     "rushing", "rusher_player_id", "rusher_player_name",
     "CAST(carries AS INTEGER) AS carries, CAST(yards AS INTEGER) AS yards, "
     "CAST(touchdowns AS INTEGER) AS touchdowns, yards_per_carry",
-    "carries >= 10", team,
+    "carries >= 10", team, season 
 )
 receiving = ranked_query(
     "receiving", "receiver_player_id", "receiver_player_name",
     "CAST(targets AS INTEGER) AS targets, CAST(receptions AS INTEGER) AS receptions, "
     "CAST(yards AS INTEGER) AS yards, CAST(touchdowns AS INTEGER) AS touchdowns, catch_rate",
-    "targets >= 10", team,
+    "targets >= 10", team, season
 )
 
 # --- Header and top players ---
 st.title(team_name)
-st.caption("2025 NFL regular season")
+in_progress = season == datetime.date.today().year
+st.caption(f"{season} NFL regular season" + (" (in progress)" if in_progress else ""))
 
 col1, col2, col3 = st.columns(3)
 player_card(col1, "Passing leader", passing)
@@ -226,7 +230,7 @@ with tab_clutch:
         st.info("In the red zone the field is short, so yards per play is lower for everyone. "
                 "Touchdowns are the stat that matters here.")
     for role in ["Passing", "Rushing", "Receiving"]:
-        df = clutch_table(team, situation, role)
+        df = clutch_table(team, situation, role, season)
         st.subheader(role)
         if df.empty:
             st.write("Not enough plays in this situation.")

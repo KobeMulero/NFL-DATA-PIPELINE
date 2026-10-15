@@ -102,22 +102,17 @@ def situational_stats(plays):
 
 
 if __name__ == "__main__":
-    season = 2025
-    plays = load_plays(season)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-    tables = {
-        "passing": passing_stats(plays),
-        "rushing": rushing_stats(plays),
-        "receiving": receiving_stats(plays),
-        "situational": situational_stats(plays),
-    }
-
-    for name, table in tables.items():
-        path = PROCESSED_DIR / f"{name}_{season}.csv"
-        table.to_csv(path, index=False)
-        print(f"Saved {path} ({len(table)} players)")
-
-        ravens = table[table["posteam"] == "BAL"]
-        print(ravens.head(3).to_string(index=False))
-        print()
+    for season in [2025, 2026]:
+        plays = load_plays(season)
+        tables = {
+            "passing": passing_stats(plays),
+            "rushing": rushing_stats(plays),
+            "receiving": receiving_stats(plays),
+            "situational": situational_stats(plays),
+        }
+        for name, table in tables.items():
+            path = PROCESSED_DIR / f"{name}_{season}.csv"
+            table.to_csv(path, index=False)
+            print(f"Saved {path} ({len(table)} rows)")

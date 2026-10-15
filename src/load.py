@@ -6,12 +6,16 @@ import pandas as pd
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 DB_PATH = Path("data/nfl.db")
-SEASON = 2025
+SEASONS = [2025, 2026]
 
 
 def load_table(conn, name):
-    df = pd.read_csv(PROCESSED_DIR / f"{name}_{SEASON}.csv")
-    df["season"] = SEASON
+    frames = []
+    for season in SEASONS:
+        season_df = pd.read_csv(PROCESSED_DIR / f"{name}_{season}.csv")
+        season_df["season"] = season
+        frames.append(season_df)
+    df = pd.concat(frames, ignore_index=True)  # stack all seasons into one table
     df.to_sql(name, conn, if_exists="replace", index=False)
     print(f"Loaded {len(df)} rows into '{name}'")
 
