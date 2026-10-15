@@ -53,6 +53,53 @@ def receiving_stats(plays):
     stats["catch_rate"] = (stats["receptions"] / stats["targets"] * 100).round(1)
     return stats.reset_index().sort_values("yards", ascending=False)
 
+SITUATIONS = {
+    "All plays": lambda p: pd.Series(True, index=p.index),
+    "3rd down": lambda p: p["down"] == 3,
+    "Red zone": lambda p: p["yardline_100"] <= 20,
+    "4th quarter": lambda p: p["qtr"] == 4,
+    "Clutch (4th Q or OT, within 8 pts)": lambda p: (p["qtr"] >= 4) & (p["score_differential"].abs() <= 8),
+}
+
+
+def situational_stats(plays):
+    # Kneels and spikes aren't real attempts to gain yards, so leave them out here
+    real = plays[plays["play_type"].isin(["pass", "run"])]
+
+    passes = real[(real["pass_attempt"] == 1) & (real["sack"] == 0)]
+    runs = real[real["rush_attempt"] == 1]
+    targets = passes[passes["receiver_player_id"].notna()]
+
+    # One row per player per play, in the same shape for every role
+    roles = [
+        ("Passing", passes, "passer_player_id", "passer_player_name", "passing_yards", "pass_touchdown", "first_down_pass"),
+        ("Rushing", runs, "rusher_player_id", "rusher_player_name", "rushing_yards", "rush_touchdown", "first_down_rush"),
+        ("Receiving", targets, "receiver_player_id", "receiver_player_name", "receiving_yards", "pass_touchdown", "first_down_pass"),
+    ]
+
+    frames = []
+    for role, df, id_col, name_col, yards_col, td_col, fd_col in roles:
+        for situation, condition in SITUATIONS.items():
+            subset = df[condition(df)]
+            stats = subset.groupby([id_col, name_col, "posteam"]).agg(
+                plays=(id_col, "size"),
+                yards=(yards_col, "sum"),
+                touchdowns=(td_col, "sum"),
+                first_downs=(fd_col, "sum"),
+                interceptions=("interception", "sum"),
+            ).reset_index()
+            stats.columns = ["player_id", "player_name", "posteam"] + list(stats.columns[3:])
+            stats["role"] = role
+            stats["situation"] = situation
+            frames.append(stats)
+
+    result = pd.concat(frames, ignore_index=True)
+    result["yards_per_play"] = (result["yards"] / result["plays"]).round(1)
+    result["first_down_rate"] = (result["first_downs"] / result["plays"] * 100).round(1)
+    count_cols = ["plays", "yards", "touchdowns", "first_downs", "interceptions"]
+    result[count_cols] = result[count_cols].astype(int)
+    return result
+
 
 if __name__ == "__main__":
     season = 2025
@@ -63,6 +110,7 @@ if __name__ == "__main__":
         "passing": passing_stats(plays),
         "rushing": rushing_stats(plays),
         "receiving": receiving_stats(plays),
+        "situational": situational_stats(plays),
     }
 
     for name, table in tables.items():

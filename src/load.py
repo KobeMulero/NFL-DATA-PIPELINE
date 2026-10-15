@@ -33,7 +33,7 @@ def load_teams(conn):
 
 if __name__ == "__main__":
     with sqlite3.connect(DB_PATH) as conn:
-        for name in ["passing", "rushing", "receiving"]:
+        for name in ["passing", "rushing", "receiving","situational"]:
             load_table(conn, name)
         load_players(conn)
         load_teams(conn)

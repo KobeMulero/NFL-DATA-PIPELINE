@@ -126,6 +126,26 @@ def bar_chart(df, color):
         .configure(background="transparent")
     )
 
+def clutch_table(team, situation, role):
+    # Self-join: compare each player's stats in this situation to their own "All plays" numbers
+    sql = """
+    SELECT COALESCE(p.display_name, s.player_name) AS player,
+           s.plays, s.yards, s.touchdowns, s.interceptions,
+           s.first_down_rate, s.yards_per_play,
+           ROUND(s.yards_per_play - a.yards_per_play, 1) AS vs_season
+    FROM situational AS s
+    JOIN situational AS a
+      ON a.player_id = s.player_id AND a.role = s.role
+     AND a.posteam = s.posteam AND a.situation = 'All plays'
+    LEFT JOIN players AS p ON p.gsis_id = s.player_id
+    WHERE s.posteam = ? AND s.situation = ? AND s.role = ? AND s.plays >= 5
+    ORDER BY s.plays DESC
+    """
+    df = run_query(sql, (team, situation, role))
+    if role != "Passing":
+        df = df.drop(columns="interceptions")
+    return df
+
 
 # --- Sidebar ---
 teams = run_query("""
@@ -181,7 +201,7 @@ player_card(col3, "Receiving leader", receiving)
 st.write("")
 
 # --- Tabs ---
-tab_rush, tab_rec, tab_pass = st.tabs(["Rushing", "Receiving", "Passing"])
+tab_rush, tab_rec, tab_pass, tab_clutch = st.tabs(["Rushing", "Receiving", "Passing", "Clutch stats"])
 
 with tab_rush:
     st.altair_chart(bar_chart(rushing, bar_color))
@@ -193,3 +213,28 @@ with tab_rec:
 
 with tab_pass:
     show_table(passing)
+    
+with tab_clutch:
+    situation = st.radio(
+        "Situation",
+        ["3rd down", "Red zone", "4th quarter", "Clutch (4th Q or OT, within 8 pts)"],
+        horizontal=True,
+    )
+    st.caption("vs_season = yards per play in this situation minus the player's season average. "
+               "Green means better when it matters. Players with at least 5 plays shown.")
+    if situation == "Red zone":
+        st.info("In the red zone the field is short, so yards per play is lower for everyone. "
+                "Touchdowns are the stat that matters here.")
+    for role in ["Passing", "Rushing", "Receiving"]:
+        df = clutch_table(team, situation, role)
+        st.subheader(role)
+        if df.empty:
+            st.write("Not enough plays in this situation.")
+            continue
+        st.dataframe(
+            df.style.map(
+                lambda v: f"color: {'#4ADE80' if v > 0 else '#F87171' if v < 0 else 'inherit'}",
+                subset=["vs_season"],
+            ).format({"vs_season": "{:+.1f}", "first_down_rate": "{:.1f}%", "yards_per_play": "{:.1f}"}),
+            hide_index=True,
+        )
