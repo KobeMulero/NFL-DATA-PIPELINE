@@ -1,3 +1,5 @@
+from pathlib import Path
+import textwrap
 import datetime
 import html
 import sqlite3
@@ -6,11 +8,20 @@ import textwrap
 import altair as alt
 import pandas as pd
 import streamlit as st
+import download_data
+import load
+import transform
 
 DB_PATH = "data/nfl.db"
 
 st.set_page_config(page_title="NFL Player Stats", page_icon="🏈", layout="wide")
-
+# On a fresh server (like Streamlit Cloud) the database doesn't exist yet,
+# so run the whole pipeline once before showing anything.
+if not Path(DB_PATH).exists():
+    with st.spinner("First launch: downloading and processing NFL data. This takes about a minute..."):
+        download_data.main()
+        transform.main()
+        load.main()
 
 @st.cache_data
 def run_query(sql, params=()):
@@ -49,7 +60,6 @@ def apply_team_theme(primary, secondary):
         .player-card .name {{ font-size: 1.25rem; font-weight: 700; margin-top: 8px; }}
         .player-card .meta {{ opacity: 0.75; font-size: 0.9rem; }}
         .player-card .stat {{ font-size: 1.6rem; font-weight: 700; margin-top: 6px; }}
-                .player-card .stat {{ font-size: 1.6rem; font-weight: 700; margin-top: 6px; }}
         .player-card {{
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }}
@@ -58,7 +68,9 @@ def apply_team_theme(primary, secondary):
             box-shadow: 0 10px 30px {secondary}55;
         }}
         .stTabs [aria-selected="true"] {{ color: {secondary}; }}
-        .stTabs [data-baseweb="tab-highlight"] {{ background-color: {secondary}; }}
+        .stTabs [role="tab"][aria-selected="true"],
+        .stTabs [role="tab"][aria-selected="true"] p {{ color: {secondary} !important; }}
+        .stTabs [data-baseweb="tab-highlight"] {{ background-color: {secondary} !important; }}
          </style>
     """)
     st.markdown(css, unsafe_allow_html=True)
@@ -120,10 +132,10 @@ def bar_chart(df, color):
         .mark_bar(color=color, cornerRadiusEnd=4)
         .encode(
             x=alt.X("yards:Q", title="Yards", axis=alt.Axis(grid=True, gridOpacity=0.15)),
-            y=alt.Y("full_name:N", sort="-x", title=None),
+            y=alt.Y("full_name:N", sort="-x", title=None, axis=alt.Axis(labelOverlap=False)),
             tooltip=["full_name", "yards", "nfl_rank"],
         )
-        .properties(height=max(120, 32 * len(df)))
+        .properties(height=max(160, 40 * len(df)))
         .configure(background="transparent")
     )
 

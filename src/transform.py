@@ -4,6 +4,16 @@ from pathlib import Path
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 
+# Only the columns we use: reading 26 of 372 columns uses far less memory
+COLUMNS = [
+    "season_type", "play_type", "two_point_attempt", "posteam",
+    "down", "qtr", "yardline_100", "score_differential",
+    "pass_attempt", "sack", "complete_pass", "interception", "pass_touchdown", "first_down_pass",
+    "passer_player_id", "passer_player_name", "passing_yards",
+    "receiver_player_id", "receiver_player_name", "receiving_yards",
+    "rush_attempt", "rush_touchdown", "first_down_rush",
+    "rusher_player_id", "rusher_player_name", "rushing_yards",
+]
 
 def load_plays(season):
     df = pd.read_csv(RAW_DIR / f"pbp_{season}.csv.gz", low_memory=False)
@@ -101,7 +111,7 @@ def situational_stats(plays):
     return result
 
 
-if __name__ == "__main__":
+def main():
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
     for season in [2025, 2026]:
@@ -116,3 +126,7 @@ if __name__ == "__main__":
             path = PROCESSED_DIR / f"{name}_{season}.csv"
             table.to_csv(path, index=False)
             print(f"Saved {path} ({len(table)} rows)")
+
+
+if __name__ == "__main__":
+    main()

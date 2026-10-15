@@ -35,9 +35,13 @@ def load_teams(conn):
     print(f"Loaded {len(df)} rows into 'teams'")
 
 
-if __name__ == "__main__":
+def main():
     with sqlite3.connect(DB_PATH) as conn:
-        for name in ["passing", "rushing", "receiving","situational"]:
+        for name in ["passing", "rushing", "receiving", "situational"]:
             load_table(conn, name)
         load_players(conn)
         load_teams(conn)
+
+
+if __name__ == "__main__":
+    main()

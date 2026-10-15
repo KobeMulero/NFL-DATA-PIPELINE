@@ -25,10 +25,14 @@ def download_season(season):
     print(f"  Saved {dest} ({size_mb:.1f} MB)")
 
 
-if __name__ == "__main__":
+def main():
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     for season in SEASONS:
         download_season(season)
-        for filename, url in EXTRA_FILES.items():
-            print(f"Downloading {filename}...")
-            urllib.request.urlretrieve(url, RAW_DIR / filename)
+    for filename, url in EXTRA_FILES.items():
+        print(f"Downloading {filename}...")
+        urllib.request.urlretrieve(url, RAW_DIR / filename)
+
+
+if __name__ == "__main__":
+    main()
