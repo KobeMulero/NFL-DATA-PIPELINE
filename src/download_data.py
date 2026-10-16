@@ -3,12 +3,12 @@ import urllib.request
 from pathlib import Path
 
 import certifi
+from config import CURRENT_SEASON, SEASONS
 
 ssl_context = ssl.create_default_context(cafile=certifi.where())
 opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl_context))
 urllib.request.install_opener(opener)
 
-SEASONS = [2025, 2026]
 BASE_URL = "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{}.csv.gz"
 RAW_DIR = Path("data/raw")
 EXTRA_FILES = {
@@ -19,6 +19,11 @@ EXTRA_FILES = {
 def download_season(season):
     url = BASE_URL.format(season)
     dest = RAW_DIR / f"pbp_{season}.csv.gz"
+          # Past seasons never change, so only download them once.
+      # The current season gets re-downloaded every time to pick up new games.
+    if dest.exists() and season != CURRENT_SEASON:
+          print(f"Skipping {season} (already downloaded)")
+          return
     print(f"Downloading {season} season...")
     urllib.request.urlretrieve(url, dest)
     size_mb = dest.stat().st_size / 1_000_000

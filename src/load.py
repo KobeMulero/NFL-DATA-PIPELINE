@@ -2,11 +2,11 @@ import sqlite3
 from pathlib import Path
 
 import pandas as pd
+from config import SEASONS
 
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 DB_PATH = Path("data/nfl.db")
-SEASONS = [2025, 2026]
 
 
 def load_table(conn, name):

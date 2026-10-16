@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+from config import SEASONS
 
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
@@ -114,7 +115,7 @@ def situational_stats(plays):
 def main():
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-    for season in [2025, 2026]:
+    for season in SEASONS:
         plays = load_plays(season)
         tables = {
             "passing": passing_stats(plays),

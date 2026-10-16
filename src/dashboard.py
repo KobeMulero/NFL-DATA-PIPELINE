@@ -4,11 +4,13 @@ import datetime
 import html
 import sqlite3
 import textwrap
+import time
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 import download_data
+from config import SEASONS
 import load
 import transform
 
@@ -17,8 +19,19 @@ DB_PATH = "data/nfl.db"
 st.set_page_config(page_title="NFL Player Stats", page_icon="🏈", layout="wide")
 # On a fresh server (like Streamlit Cloud) the database doesn't exist yet,
 # so run the whole pipeline once before showing anything.
-if not Path(DB_PATH).exists():
-    with st.spinner("First launch: downloading and processing NFL data. This takes about a minute..."):
+def needs_rebuild():
+    """Rebuild if there's no database, it's missing seasons, or it's over a week old."""
+    db = Path(DB_PATH)
+    if not db.exists():
+        return True
+    with sqlite3.connect(db) as conn:
+        loaded = {row[0] for row in conn.execute("SELECT DISTINCT season FROM rushing")}
+    week_old = time.time() - db.stat().st_mtime > 7 * 24 * 60 * 60
+    return loaded != set(SEASONS) or week_old
+
+
+if needs_rebuild():
+    with st.spinner("Updating NFL data. This can take a minute or two..."):
         download_data.main()
         transform.main()
         load.main()
